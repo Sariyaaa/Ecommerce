@@ -151,7 +151,7 @@ average profit, meaning the business loses money on heavily discounted orders.
 
 ## Dashboard Preview
 ![Sales by Category](ecom.png)
-![Yearly Sales Trend](ecom_chart_2.png)
+![Yearly Sales Trend](ecom%20chart%202.png)
 
 ---
 
