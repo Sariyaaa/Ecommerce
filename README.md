@@ -12,7 +12,7 @@ have grown over the years (2011–2014).
 - Identify total sales, profit, and profit margin across all orders
 - Analyze which product categories generate the most revenue
 - Understand the impact of discounts on profit and loss orders
-- Explore customer segments and regional performance
+- Explore customer and regional performance
 - Build an interactive dashboard to visualize key metrics
 
 ---
@@ -20,10 +20,10 @@ have grown over the years (2011–2014).
 ## Tools Used
 - **MySQL Workbench** — wrote SQL queries to analyze sales, profit, category 
   performance, and discount impact
-- **Python (Pandas, Matplotlib)** — loaded, cleaned, and visualized the dataset
+- **Python (Pandas)** — loaded and cleaned the dataset
 - **Excel** — explored and reviewed the cleaned data
 - **Power BI** — built an interactive dashboard with KPI cards, charts, map, 
-  and year slicer
+  and category/region/year slicers
 
 ---
 
@@ -35,11 +35,35 @@ have grown over the years (2011–2014).
 
 ---
 
+## Data Quality Fix
+
+While cross-checking SQL results against the Power BI dashboard (same source 
+data), total sales did not match between the two — SQL reported a noticeably 
+lower figure than Power BI.
+
+**Root cause:** the `sales` column was stored as text, and 2,630 rows used 
+comma thousand-separators (e.g. `"1,648"`). MySQL's implicit string-to-number 
+cast inside `SUM()` truncates at the first non-numeric character, so `"1,648"` 
+was being read as just `1` — silently undercounting total sales by roughly 
+4.8M (about 38% of true sales).
+
+**Fix applied:**
+```sql
+UPDATE ecommerce_cleaned
+SET sales = REPLACE(sales, ',', '')
+WHERE sales LIKE '%,%';
+```
+
+After the fix, SQL and Power BI totals matched exactly at **$12,642,905**. 
+All queries and findings below reflect the corrected data.
+
+---
+
 ## SQL Queries Used
 
 **Query 1: Sales by Category**
 ```sql
-SELECT category, SUM(sales) AS Total_Sales
+SELECT category, ROUND(SUM(sales), 2) AS Total_Sales
 FROM ecommerce_cleaned
 GROUP BY category
 ORDER BY Total_Sales DESC;
@@ -50,10 +74,10 @@ Objective: Identify which product category generates the most revenue.
 
 **Query 2: Top 5 Customers**
 ```sql
-SELECT customer_name, SUM(sales) AS Total
+SELECT customer_name, ROUND(SUM(sales), 2) AS Total_Sales
 FROM ecommerce_cleaned
 GROUP BY customer_name
-ORDER BY Total DESC
+ORDER BY Total_Sales DESC
 LIMIT 5;
 ```
 Objective: Find the top 5 customers by total sales.
@@ -62,10 +86,10 @@ Objective: Find the top 5 customers by total sales.
 
 **Query 3: Region Performance**
 ```sql
-SELECT region, SUM(sales) AS Sales
+SELECT region, ROUND(SUM(sales), 2) AS Total_Sales
 FROM ecommerce_cleaned
 GROUP BY region
-ORDER BY Sales DESC;
+ORDER BY Total_Sales DESC;
 ```
 Objective: Identify which region performs best in sales.
 
@@ -73,7 +97,7 @@ Objective: Identify which region performs best in sales.
 
 **Query 4: Profit by Category**
 ```sql
-SELECT category, SUM(profit) AS Total_Profit
+SELECT category, ROUND(SUM(profit), 2) AS Total_Profit
 FROM ecommerce_cleaned
 GROUP BY category
 ORDER BY Total_Profit DESC;
@@ -97,7 +121,7 @@ Objective: Calculate profit margin percentage for each category.
 
 ---
 
-**Query 6: Categories Above 2 Million Sales**
+**Query 6: Categories Above $2 Million Sales**
 ```sql
 SELECT category, ROUND(SUM(sales), 2) AS Total_Sales
 FROM ecommerce_cleaned
@@ -105,7 +129,7 @@ GROUP BY category
 HAVING Total_Sales > 2000000
 ORDER BY Total_Sales DESC;
 ```
-Objective: Filter only high-performing categories using HAVING clause.
+Objective: Filter only high-performing categories using the HAVING clause.
 
 ---
 
@@ -128,61 +152,71 @@ Objective: Analyze how discount levels affect average profit and loss orders.
 
 ---
 
+**Query 8: Sales by Year**
+```sql
+SELECT year, COUNT(*) AS Order_Count, ROUND(SUM(sales), 2) AS Total_Sales
+FROM ecommerce_cleaned
+GROUP BY year
+ORDER BY year;
+```
+Objective: Track year-over-year sales growth from 2011 to 2014.
+
+---
+
 ## Key Findings
 
-**Office Supplies is the top category** with the highest total sales (~2.73M), 
-followed by Technology (~2.66M) and Furniture (~2.43M).
+**Technology is the top-performing category overall** — highest total sales 
+($4.74M), highest total profit ($663.8K), and highest profit margin (13.99%). 
+Office Supplies is the second-most profitable category by margin (13.69%), 
+while Furniture, despite generating solid sales ($4.11M), converts that into 
+the weakest profit margin of the three (6.98%).
 
-**Sales grew consistently from 2011 to 2014** — rising from ~1.38M in 2011 to 
-~2.67M in 2014, showing strong year-over-year growth.
+**Sales grew consistently from 2011 to 2014** — rising from $2.26M in 2011 to 
+$4.30M in 2014, a year-over-year increase of roughly 90%.
 
-**Consumer segment is the most profitable** customer group, followed by 
-Corporate and Home Office.
+**High discounts are hurting profit** — orders with high discounts averaged 
+**–$71.92 profit**, compared to **+$61.04 profit** for orders with no discount. 
+Heavily discounted orders are far more likely to result in a loss.
 
-**Total Sales across all orders** was $4,110,884 with a total profit of $286,780 
-and an overall profit margin of ~6.97%.
-
-**High discounts are killing profit** — orders with high discounts show negative 
-average profit, meaning the business loses money on heavily discounted orders.
-
-**Central region leads** in sales by region, followed by East, West, and South.
+**Total sales across all orders:** $12,642,905, with total profit of 
+$1,469,034.82 and an overall blended profit margin of approximately 11.62%.
 
 ---
 
 ## Dashboard Preview
-![Sales by Category](ecom.png)
-![Yearly Sales Trend](ecom%20chart%202.png)
+![Power BI Dashboard](Ecommerce_Dashboard.png)
 
 ---
 
 ## Findings and Conclusion
 
 - **Sales Performance:** Sales grew consistently every year from 2011 to 2014, 
-  indicating a healthy and growing business.
-- **Category Insights:** Office Supplies leads in revenue but Technology has a 
-  higher profit margin, making it more efficient per dollar sold.
+  nearly doubling over the period — indicating a healthy and growing business.
+- **Category Insights:** Technology leads on every measure — sales, profit, 
+  and margin — making it the strongest category overall. Furniture generates 
+  solid sales volume but is the least efficient at converting that into profit.
 - **Discount Problem:** High discounts directly cause loss orders. Reducing 
-  aggressive discounting would significantly improve overall profit margin.
-- **Customer Segments:** The Consumer segment drives the most orders and profit, 
-  making it the most important group to focus on.
-- **Regional Performance:** The Central region leads in sales, but all four 
-  regions show healthy contribution.
+  aggressive discounting would meaningfully improve overall profit margin.
+- **Regional Performance:** Regional sales are explored in the dashboard via 
+  an interactive region slicer, allowing comparison across all regions.
 
 This analysis provides a clear picture of the business's sales health, category 
-performance, and the critical impact of discounting on profitability.
+performance, and the critical impact of discounting on profitability. It also 
+reflects a real data-quality issue identified and resolved during analysis — 
+a comma-formatting bug in the sales column that was silently undercounting 
+totals until caught by cross-checking SQL output against the Power BI dashboard.
 
 ---
 
 ## Files
 | File | Description |
 |------|-------------|
-| `ecommerce_code.py` | Python script for data cleaning and visualization |
-| `ecommerce_queries.sql` | SQL queries written in MySQL Workbench |
+| `ecommerce code.py` | Python script for data loading and cleaning |
+| `ecommerce queries.sql` | SQL queries written in MySQL Workbench |
 | `ecommerce_cleaned.csv` | Cleaned dataset |
 | `ecommerce_cleaned.xlsx` | Excel version of the dataset |
 | `Ecommerce_Dashboard.pbix` | Power BI interactive dashboard |
-| `ecom.png` | Sales by category chart |
-| `ecom_chart_2.png` | Yearly sales trend chart |
+| `Ecommerce_Dashboard.png` | Power BI dashboard preview image |
 
 ---
 
