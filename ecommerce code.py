@@ -34,25 +34,3 @@ print(df.groupby("segment")["profit"].sum()
 print("\nSales by Year:")
 print(df.groupby("year")["sales"].sum().round(2))
 
-
-
-
-# Chart 1 - Sales by Category
-df.groupby("category")["sales"].sum()\
-  .sort_values().plot(kind="barh",
-    color="steelblue",
-    title="Total Sales by Category")
-plt.xlabel("Total Sales ($)")
-plt.tight_layout()
-plt.savefig(r"C:\Users\91726\OneDrive\Desktop\sales_by_category.png")
-plt.show()
-
-# Chart 2 - Yearly Sales Trend
-df.groupby("year")["sales"].sum()\
-  .plot(kind="line", marker="o",
-    color="green",
-    title="Yearly Sales Trend (2011-2014)")
-plt.ylabel("Total Sales ($)")
-plt.tight_layout()
-plt.savefig(r"C:\Users\91726\OneDrive\Desktop\yearly_trend.png")
-plt.show()
